@@ -1,22 +1,14 @@
 import os
-import urllib.parse
 import yt_dlp
 import time
+from colorama import init, Fore, Style
 
-# ────── CÓDIGO ORIGINAL (NO MODIFICAR) ──────
+# Inicializar colorama
+init(autoreset=True)
 
-def limpiar_url(url):
-    """
-    Limpia la URL eliminando los parámetros extras (query y fragment).
-    """
-    parsed = urllib.parse.urlparse(url)
-    return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+# FUNCIONES INTERNAS 
 
 def progreso_hook(d):
-    """
-    Función hook para mostrar el progreso de la descarga.
-    Solo muestra el porcentaje de 0 a 100%.
-    """
     if d['status'] == 'downloading':
         total = d.get('total_bytes') or d.get('total_bytes_estimate')
         if total:
@@ -25,14 +17,28 @@ def progreso_hook(d):
     elif d['status'] == 'finished':
         print("\nDescarga completada.")
 
-def descargar_video(url):
-    url_limpia = limpiar_url(url)
-    print("Usando URL limpia:", url_limpia)
+def seleccionar_mejor_formato(url):
+    # Ejecuta yt-dlp en modo extract para obtener mejor URL sin mostrar
+    ydl_opts = {
+        'quiet': True,
+        'skip_download': True,
+        'force_generic_extractor': False,
+        'extract_flat': False
+    }
 
-    # Determinar la carpeta de descargas según el sistema operativo.
-    if os.name == 'nt':  # Windows
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        try:
+            info = ydl.extract_info(url, download=False)
+            return info.get('webpage_url') or url
+        except Exception:
+            return url  # Si falla, usa URL original
+
+def descargar_video(url):
+    url_final = seleccionar_mejor_formato(url)
+
+    if os.name == 'nt':
         carpeta_descargas = os.path.join(os.path.expanduser('~'), 'Downloads')
-    else:  # macOS y Linux (posiblemente 'Descargas')
+    else:
         carpeta_descargas = os.path.join(os.path.expanduser('~'), 'Descargas')
 
     ydl_opts = {
@@ -40,54 +46,62 @@ def descargar_video(url):
         'progress_hooks': [progreso_hook],
         'user_agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
                        'AppleWebKit/537.36 (KHTML, like Gecko) '
-                       'Chrome/115.0.0.0 Safari/537.36')
+                       'Chrome/115.0.0.0 Safari/537.36'),
+        'quiet': False
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
-            ydl.download([url_limpia])
+            ydl.download([url_final])
         except Exception as e:
             print(f"\nError: {e}")
 
-# ────── FIN CÓDIGO ORIGINAL ──────
-
-
-# ────── CÓDIGO EXTRA: ANIMACIONES Y MENÚ INTERACTIVO ──────
+#  MEJORAS VISUALES 
 
 def animacion_carga(label, duration=2):
-    """
-    Muestra una animación de carga en forma de barra de progreso que va de 0 a 100%.
-    """
     pasos = 50
     for i in range(pasos + 1):
         porcentaje = (i / pasos) * 100
-        barra = "█" * i + "-" * (pasos - i)
-        print(f"\r{label}: [{barra}] {porcentaje:.0f}%", end="")
+        barra = Fore.GREEN + "▓" * i + Fore.WHITE + "░" * (pasos - i)
+        print(f"\r{label}: [{barra}] {porcentaje:.0f}%", end="", flush=True)
         time.sleep(duration / pasos)
-    print()  # Salto de línea al finalizar
+    print()
+
+def centrar_texto(texto, color=Fore.WHITE, ancho=80):
+    espacios = (ancho - len(texto)) // 2
+    return " " * espacios + color + texto
+
+def mostrar_menu():
+    os.system('cls' if os.name == 'nt' else 'clear')
+    ancho = 60
+    
+    print(Fore.CYAN + "╔" + "═" * (ancho-2) + "╗")
+    print(centrar_texto("YTDOWNLOADER v1.2", Fore.CYAN + Style.BRIGHT, ancho))
+    print(Fore.CYAN + "╚" + "═" * (ancho-2) + "╝" + Style.RESET_ALL)
+
+    print(centrar_texto("=== Menú de Descargas ===", Fore.YELLOW, ancho))
+    print(centrar_texto("1. Descargar video", Fore.GREEN, ancho))
+    print(centrar_texto("2. Salir", Fore.RED, ancho))
+    print(Fore.CYAN + "═" * ancho)
 
 def menu_interactivo():
-    """
-    Muestra un menú interactivo para que el usuario pueda descargar
-    más videos o salir del programa.
-    """
     while True:
-        print("\n=== Menú de Descargas de YouTube ===")
-        print("1. Descargar video")
-        print("2. Salir")
-        opcion = input("Selecciona una opción: ")
+        mostrar_menu()
+        opcion = input(centrar_texto("Selecciona una opción: ", Fore.WHITE, 60))
+
         if opcion == '1':
-            url_video = input("\nIntroduce la URL del video de YouTube: ")
-            print("\nPreparando descarga...")
-            animacion_carga("Preparando", duration=1)
-            descargar_video(url_video)
-            print("\nFinalizando descarga...")
-            animacion_carga("Finalizando", duration=2)
+            url = input("\n" + centrar_texto("Introduce la URL: ", Fore.WHITE, 60) + "\n")
+            print(centrar_texto("Preparando descarga...", Fore.YELLOW, 60))
+            animacion_carga("Cargando", 1)
+            descargar_video(url)
+            print(centrar_texto("Descarga completada!", Fore.GREEN, 60))
+            time.sleep(1)
         elif opcion == '2':
-            print("Saliendo del programa...")
+            print(centrar_texto("Saliendo...", Fore.RED, 60))
             break
         else:
-            print("Opción no válida, intenta de nuevo.")
+            print(centrar_texto("Opción inválida!", Fore.RED, 60))
+            time.sleep(1)
 
 if __name__ == '__main__':
     menu_interactivo()
