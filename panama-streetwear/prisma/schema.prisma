@@ -1,0 +1,97 @@
+// Prisma schema · 507 Street
+// SQLite local. Arrays se serializan como JSON (String) — usar helpers en lib/utils.ts.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  name        String
+  description String?
+  imageUrl    String?
+  products    Product[]
+  createdAt   DateTime  @default(now())
+}
+
+model Product {
+  id             String   @id @default(cuid())
+  slug           String   @unique
+  name           String
+  description    String
+  priceCents     Int
+  compareAtCents Int?
+  categoryId     String
+  category       Category @relation(fields: [categoryId], references: [id])
+  images         String   // JSON array de URLs
+  sizes          String   // JSON array ej. ["XS","S","M","L","XL"]
+  colors         String   // JSON array de {name, hex}
+  stock          Int      @default(0)
+  featured       Boolean  @default(false)
+  isNew          Boolean  @default(false)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  orderItems     OrderItem[]
+
+  @@index([categoryId])
+  @@index([featured])
+  @@index([isNew])
+  @@index([active])
+}
+
+model Order {
+  id               String   @id @default(cuid())
+  number           String   @unique
+  customerEmail    String
+  customerName     String
+  customerPhone    String
+  shippingProvince String
+  shippingCity     String
+  shippingAddress  String
+  shippingNotes    String?
+  subtotalCents    Int
+  shippingCents    Int
+  totalCents       Int
+  paymentMethod    String   // "yappy" | "card" | "cod"
+  paymentStatus    String   @default("pending") // pending | paid | failed | refunded
+  status           String   @default("pending") // pending | confirmed | shipped | delivered | cancelled
+  paymentRef       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  items            OrderItem[]
+
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id         String  @id @default(cuid())
+  orderId    String
+  order      Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product @relation(fields: [productId], references: [id])
+  name       String
+  priceCents Int
+  quantity   Int
+  size       String?
+  color      String?
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+}
